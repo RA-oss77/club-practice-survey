@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>部活練習希望調査</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>部活練習希望調査</h1>
+        <p>today: {{ today }}</p>
+        {% for calinfo in calendars %}
+        <div class="calendar">
+            <h2>{{ calinfo.year }}年 {{ calinfo.month_name }}</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>日</th>
+                        <th>月</th>
+                        <th>火</th>
+                        <th>水</th>
+                        <th>木</th>
+                        <th>金</th>
+                        <th>土</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for week in calinfo.calendar %}
+                    <tr>
+                        {% for day in week %}
+                            {% if day == 0 %}
+                                <td class="empty"></td>
+                            {% else %}
+                                {% set d = day|int %}
+                                {% set y = calinfo.year|int %}
+                                {% set m = calinfo.month|int %}
+                                {% set date_key = y ~ '-' ~ m ~ '-' ~ d %}
+                                {% set slots = time_slots.get(date_key, get_default_slots(y, m, d)) %}
+                                {% set is_past = (y == today.year and m == today.month and d < today.day) or
+                                                 (y == today.year and m < today.month) or
+                                                 (y < today.year) %}
+                                <td class="day{% if is_past %} past{% endif %}{% if date_key not in valid_dates %} not-selectable{% endif %}" data-year="{{ y }}" data-month="{{ m }}" data-day="{{ d }}">
+                                    <div class="day-number">{{ day }}</div>
+                                    <div class="time-options">
+                                        {% if date_key in valid_dates %}
+                                            {% for slot in slots %}
+                                                <span class="time-label">{{ slot }}</span><br>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 時間帯選択モーダル -->
+    <div id="timeSlotModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>練習時間を選択してください</h3>
+            <div class="time-slots">
+                <!-- JSでボタンを動的生成 -->
+            </div>
+            <div id="nameForm" style="display:none; margin-top:20px;">
+                <input type="text" id="userName" placeholder="名前を入力してください" style="padding:8px; width:80%;">
+                <button id="submitBtn" style="padding:8px 16px; margin-left:10px;">送信</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let selectedDate = null;
+            let selectedTimeSlot = null;
+            const modal = document.getElementById('timeSlotModal');
+            const closeBtn = document.getElementsByClassName('close')[0];
+            const timeSlots = document.getElementsByClassName('time-slot');
+            const nameForm = document.getElementById('nameForm');
+            const userNameInput = document.getElementById('userName');
+            const submitBtn = document.getElementById('submitBtn');
+            const timeSlotsDiv = document.querySelector('.time-slots');
+
+            // 日付をクリックしたときの処理
+            document.querySelectorAll('.day').forEach(day => {
+                if (day.classList.contains('past')) return; // 過去日は無効
+                day.addEventListener('click', async function() {
+                    const year = parseInt(this.dataset.year);
+                    const month = parseInt(this.dataset.month);
+                    const dayNum = parseInt(this.dataset.day);
+                    selectedDate = { year, month, day: dayNum };
+                    selectedTimeSlot = null;
+                    nameForm.style.display = 'none';
+                    userNameInput.value = '';
+
+                    // ここで時間帯取得
+                    const url = `/get_time_slots/${year}/${month}/${dayNum}`;
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        alert('時間帯の取得に失敗しました。');
+                        return;
+                    }
+                    const data = await response.json();
+                    modal.style.display = 'block';
+
+                    // ここでモーダルの時間帯ボタンを動的に生成
+                    const timeSlotsDiv = document.querySelector('.time-slots');
+                    timeSlotsDiv.innerHTML = ''; // 既存をクリア
+                    data.time_slots.forEach(slot => {
+                        const btn = document.createElement('button');
+                        btn.className = 'time-slot';
+                        btn.dataset.slot = slot.id;
+                        btn.textContent = slot.label;
+                        btn.onclick = function() {
+                            selectedTimeSlot = slot.id;
+                            document.querySelectorAll('.time-slot').forEach(b => b.classList.remove('selected'));
+                            btn.classList.add('selected');
+                            nameForm.style.display = 'block';
+                        };
+                        timeSlotsDiv.appendChild(btn);
+                        // 予約者名リストを表示
+                        const usersDiv = document.createElement('div');
+                        usersDiv.className = 'slot-users';
+                        usersDiv.style.fontSize = '0.9em';
+                        usersDiv.style.color = '#555';
+                        usersDiv.style.marginBottom = '8px';
+                        if (slot.users && slot.users.length > 0) {
+                            usersDiv.textContent = '予約者: ' + slot.users.join(', ');
+                        } else {
+                            usersDiv.textContent = '';
+                        }
+                        timeSlotsDiv.appendChild(usersDiv);
+                    });
+                });
+            });
+
+            // 送信ボタンを押したときの処理
+            submitBtn.addEventListener('click', async function() {
+                const userName = userNameInput.value.trim();
+                if (!userName) {
+                    alert('名前を入力してください');
+                    return;
+                }
+                if (!selectedTimeSlot) {
+                    alert('時間帯を選択してください');
+                    return;
+                }
+                try {
+                    const response = await fetch('/submit_practice', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            ...selectedDate,
+                            time_slot: selectedTimeSlot,
+                            user_name: userName
+                        })
+                    });
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    modal.style.display = 'none';
+                    alert('送信が完了しました！');
+                } catch (error) {
+                    alert('送信に失敗しました。');
+                }
+            });
+
+            // モーダルを閉じる
+            closeBtn.onclick = function() {
+                modal.style.display = 'none';
+            }
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            }
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理者用：時間帯編集</title>
+    <style>
+        body { font-family: sans-serif; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 30px auto; background: #fff; padding: 24px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        h1 { text-align: center; }
+        .date-block { margin-bottom: 24px; padding: 12px; border: 1px solid #ddd; border-radius: 6px; background: #fafafa; }
+        .date-label { font-weight: bold; font-size: 1.1em; }
+        .time-list { margin: 8px 0 0 0; padding: 0; list-style: none; }
+        .time-list li { margin-bottom: 4px; }
+        .edit-btn { margin-left: 8px; }
+        .add-btn { margin-top: 8px; }
+        .save-btn { margin-top: 8px; background: #007bff; color: #fff; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer; }
+        .slot-users { font-size: 0.9em; color: #555; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>管理者用：時間帯編集</h1>
+        {% for d in week_dates %}
+        <div class="date-block" data-date="{{ d.strftime('%Y-%m-%d') }}">
+            <div class="date-label">{{ d.strftime('%Y-%m-%d（%a）') }}</div>
+            <ul class="time-list">
+                {% set date_key = d.year ~ '-' ~ d.month ~ '-' ~ d.day %}
+                {% set slots = time_slots.get(date_key, get_default_slots(d.year, d.month, d.day)) %}
+                {% for slot in slots %}
+                <li>
+                    <input type="text" value="{{ slot }}" class="slot-input">
+                    <button class="edit-btn del-btn">削除</button>
+                    <div class="slot-users">
+                        {% set users = practice_users[date_key][slot] if date_key in practice_users and slot in practice_users[date_key] else [] %}
+                        {% if users|length > 0 %}
+                            予約者: {{ users|join(', ') }}
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            <input type="text" class="new-slot-input" placeholder="新しい時間帯を追加">
+            <button class="add-btn">追加</button>
+            <button class="save-btn">保存</button>
+            <span class="save-status" style="margin-left:10px;color:#007bff;"></span>
+        </div>
+        {% endfor %}
+    </div>
+    <script>
+    document.querySelectorAll('.date-block').forEach(function(block) {
+        const date = block.getAttribute('data-date');
+        const timeList = block.querySelector('.time-list');
+        const addBtn = block.querySelector('.add-btn');
+        const newSlotInput = block.querySelector('.new-slot-input');
+        const saveBtn = block.querySelector('.save-btn');
+        const status = block.querySelector('.save-status');
+
+        // 追加
+        addBtn.onclick = function() {
+            const val = newSlotInput.value.trim();
+            if (!val) return;
+            const li = document.createElement('li');
+            li.innerHTML = `<input type="text" value="${val}" class="slot-input"> <button class="edit-btn del-btn">削除</button><div class='slot-users'></div>`;
+            timeList.appendChild(li);
+            newSlotInput.value = '';
+        };
+        // 削除
+        timeList.addEventListener('click', function(e) {
+            if (e.target.classList.contains('del-btn')) {
+                e.target.parentElement.remove();
+            }
+        });
+        // 保存
+        saveBtn.onclick = async function() {
+            const slots = Array.from(block.querySelectorAll('.slot-input')).map(input => input.value.trim()).filter(v => v);
+            const res = await fetch('/admin/update_time_slots', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date, slots })
+            });
+            if (res.ok) {
+                status.textContent = '保存しました';
+                setTimeout(() => { status.textContent = ''; }, 1500);
+            } else {
+                status.textContent = '保存失敗';
+            }
+        };
+    });
+    </script>
+</body>
+</html> 
