@@ -28,6 +28,7 @@ h2 {
 
 .calendar {
     width: 100%;
+    overflow-x: auto;
 }
 
 table {
@@ -154,4 +155,41 @@ td.day.past {
 }
 td.day.past:hover {
     background-color: #e0e0e0;
+} 
+
+.day.not-selectable {
+    background-color: #e0e0e0;
+    color: #aaa;
+    cursor: not-allowed;
+    pointer-events: none;
+} 
+
+/* スマホ用レスポンシブ対応 */
+@media (max-width: 600px) {
+    .container {
+        padding: 4px;
+    }
+    .calendar {
+        font-size: 0.85em;
+    }
+    table {
+        font-size: 0.9em;
+    }
+    th, td {
+        padding: 4px;
+        min-width: 36px;
+        font-size: 0.95em;
+    }
+    td.day {
+        height: 48px;
+        min-width: 48px;
+        padding: 2px 1px;
+        font-size: 1em;
+    }
+    .day-number {
+        font-size: 1.1em;
+    }
+    .time-label {
+        font-size: 0.9em;
+    }
 } 
