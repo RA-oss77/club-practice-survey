@@ -164,6 +164,11 @@ td.day.past:hover {
     pointer-events: none;
 } 
 
+.day.booked {
+    background-color: #fff3e0;  /* 薄いオレンジ色 */
+    border: 2px solid #ff9800;  /* オレンジの枠線 */
+}
+
 /* スマホ用レスポンシブ対応 */
 @media (max-width: 600px) {
     .container {
