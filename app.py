@@ -57,6 +57,14 @@ def index():
     for i in range(14):
         d = today + timedelta(days=i)
         valid_dates.add(f"{d.year}-{d.month}-{d.day}")
+    
+    # 予約が入っている日付のリストを作成
+    booked_dates = set()
+    for date_key in practice_requests:
+        if practice_requests[date_key]:  # 予約がある場合
+            booked_dates.add(date_key)
+    print("booked_dates:", booked_dates)  # ← ここを追加
+    
     return render_template(
         'index.html',
         calendars=calendars,
@@ -67,7 +75,8 @@ def index():
         practice_requests=practice_requests,
         time_slots=time_slots,
         get_default_slots=get_default_slots,
-        valid_dates=valid_dates
+        valid_dates=valid_dates,
+        booked_dates=booked_dates
     )
 
 @app.route('/admin')

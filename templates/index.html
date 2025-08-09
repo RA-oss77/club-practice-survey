@@ -40,7 +40,7 @@
                                 {% set is_past = (y == today.year and m == today.month and d < today.day) or
                                                  (y == today.year and m < today.month) or
                                                  (y < today.year) %}
-                                <td class="day{% if is_past %} past{% endif %}{% if date_key not in valid_dates %} not-selectable{% endif %}" data-year="{{ y }}" data-month="{{ m }}" data-day="{{ d }}">
+                                <td class="day{% if is_past %} past{% endif %}{% if date_key not in valid_dates %} not-selectable{% endif %}{% if date_key in booked_dates %} booked{% endif %}" data-year="{{ y }}" data-month="{{ m }}" data-day="{{ d }}">
                                     <div class="day-number">{{ day }}</div>
                                     <div class="time-options">
                                         {% if date_key in valid_dates %}
