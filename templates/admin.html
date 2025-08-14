@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理者用：時間帯編集</title>
+    <title>時間帯編集</title>
     <style>
         body { font-family: sans-serif; background: #f5f5f5; }
         .container { max-width: 600px; margin: 30px auto; background: #fff; padding: 24px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
@@ -20,7 +20,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>管理者用：時間帯編集</h1>
+        <h1>時間帯編集</h1>
         {% for d in week_dates %}
         <div class="date-block" data-date="{{ d.strftime('%Y-%m-%d') }}">
             <div class="date-label">{{ d.strftime('%Y-%m-%d（%a）') }}</div>

@@ -1,13 +1,35 @@
 from flask import Flask, render_template, jsonify, request
+from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date, timedelta
 import calendar
 
 app = Flask(__name__)
 
-# { '2024-06-01': {'taro': 'before_17', 'hanako': '17_to_18'} }
-practice_requests = {}
-# 日付ごとの時間帯リスト（初期値は空）
-time_slots = {}
+# SQLiteデータベース設定
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///reservations.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+# モデル定義（予約データ）
+class PracticeRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date_key = db.Column(db.String(20), nullable=False)  # "YYYY-M-D"
+    user_name = db.Column(db.String(50), nullable=False)
+    time_slot = db.Column(db.String(50), nullable=False)
+
+    def __repr__(self):
+        return f"<PracticeRequest {self.date_key} {self.user_name} {self.time_slot}>"
+
+# モデル定義（時間枠データ）
+class TimeSlot(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date_key = db.Column(db.String(20), nullable=False)
+    slot = db.Column(db.String(50), nullable=False)
+
+# DB作成
+with app.app_context():
+    db.create_all()
+
 calendar.setfirstweekday(calendar.SUNDAY)
 
 def get_default_slots(year, month, day):
@@ -52,18 +74,28 @@ def index():
             'month_name': month_names[next_month-1],
             'calendar': next_cal
         })
-    # 今日から2週間分の日付リスト
-    valid_dates = set()
-    for i in range(14):
-        d = today + timedelta(days=i)
-        valid_dates.add(f"{d.year}-{d.month}-{d.day}")
+   # 今日から2週間分
+    valid_dates = {f"{(today + timedelta(days=i)).year}-{(today + timedelta(days=i)).month}-{(today + timedelta(days=i)).day}" for i in range(14)}
+
     
-    # 予約が入っている日付のリストを作成
+    # DBから予約データ取得
+    practice_requests = {}
     booked_dates = set()
-    for date_key in practice_requests:
-        if practice_requests[date_key]:  # 予約がある場合
-            booked_dates.add(date_key)
-    print("booked_dates:", booked_dates)  # ← ここを追加
+    all_requests = PracticeRequest.query.all()
+    for req in all_requests:
+        if req.date_key not in practice_requests:
+            practice_requests[req.date_key] = {}
+        practice_requests[req.date_key][req.user_name] = req.time_slot
+        booked_dates.add(req.date_key)
+    # DBから時間枠取得
+    time_slots = {}
+    all_slots = TimeSlot.query.all()
+    for slot in all_slots:
+        if slot.date_key not in time_slots:
+            time_slots[slot.date_key] = []
+        time_slots[slot.date_key].append(slot.slot)
+
+
     
     return render_template(
         'index.html',
@@ -83,28 +115,44 @@ def index():
 def admin():
     today = date.today()
     week_dates = [(today + timedelta(days=i)) for i in range(14)]  # 2週間分
-    # 各日付・時間帯ごとの予約者リストを作成
     practice_users = {}
+
+    # DBから時間枠取得
+    time_slots = {}
+    all_slots = TimeSlot.query.all()
+    for slot in all_slots:
+        if slot.date_key not in time_slots:
+            time_slots[slot.date_key] = []
+        time_slots[slot.date_key].append(slot.slot)
+
     for d in week_dates:
         date_key = f"{d.year}-{d.month}-{d.day}"
         slots = time_slots.get(date_key, get_default_slots(d.year, d.month, d.day))
         users_per_slot = {slot: [] for slot in slots}
-        if date_key in practice_requests:
-            for name, slot in practice_requests[date_key].items():
-                if slot in users_per_slot:
-                    users_per_slot[slot].append(name)
+        
+        # DBからこの日付の予約を取得
+        requests = PracticeRequest.query.filter_by(date_key=date_key).all()
+        for req in requests:
+            if req.time_slot in users_per_slot:
+                users_per_slot[req.time_slot].append(req.user_name)
+
+        
         practice_users[date_key] = users_per_slot
     return render_template('admin.html', week_dates=week_dates, time_slots=time_slots, practice_users=practice_users, get_default_slots=get_default_slots)
 
 @app.route('/get_time_slots/<int:year>/<int:month>/<int:day>')
 def get_time_slots(year, month, day):
     date_key = f"{year}-{month}-{day}"
-    slots = time_slots.get(date_key, get_default_slots(year, month, day))
+    slots = [s.slot for s in TimeSlot.query.filter_by(date_key=date_key).all()]
+    if not slots:
+        slots = get_default_slots(year, month, day)
+
     slot_users = {slot: [] for slot in slots}
-    if date_key in practice_requests:
-        for name, slot in practice_requests[date_key].items():
-            if slot in slot_users:
-                slot_users[slot].append(name)
+    requests = PracticeRequest.query.filter_by(date_key=date_key).all()
+    for req in requests:
+        if req.time_slot in slot_users:
+            slot_users[req.time_slot].append(req.user_name)
+
     return jsonify({
         'time_slots': [
             {'id': slot, 'label': slot, 'users': slot_users[slot]} for slot in slots
@@ -121,9 +169,13 @@ def submit_practice():
     time_slot = data.get('time_slot')
     if not user_name or not time_slot:
         return jsonify({'status': 'error', 'message': '名前と時間帯は必須です'}), 400
-    if date_key not in practice_requests:
-        practice_requests[date_key] = {}
-    practice_requests[date_key][user_name] = time_slot
+    existing = PracticeRequest.query.filter_by(date_key=date_key, user_name=user_name).first()
+    if existing:
+        existing.time_slot = time_slot
+    else:
+        db.session.add(PracticeRequest(date_key=date_key, user_name=user_name, time_slot=time_slot))
+
+    db.session.commit()
     return jsonify({'status': 'success'})
 
 @app.route('/admin/update_time_slots', methods=['POST'])
@@ -136,7 +188,12 @@ def update_time_slots():
     # ゼロ埋めなしのキーに変換
     y, m, d = [int(x) for x in date_str.split('-')]
     key = f'{y}-{m}-{d}'
-    time_slots[key] = slots
+    # 既存スロット削除して新規追加
+    TimeSlot.query.filter_by(date_key=key).delete()
+    for slot in slots:
+        db.session.add(TimeSlot(date_key=key, slot=slot))
+
+    db.session.commit()
     return jsonify({'status': 'success'})
 
 if __name__ == '__main__':

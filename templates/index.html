@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>部活練習希望調査</title>
+    <base href="http://127.0.0.1:5000/">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -64,7 +65,7 @@
     <div id="timeSlotModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h3>練習時間を選択してください</h3>
+            <h3 id="modalTitle">練習時間を選択してください</h3>
             <div class="time-slots">
                 <!-- JSでボタンを動的生成 -->
             </div>
@@ -98,6 +99,10 @@
                     selectedTimeSlot = null;
                     nameForm.style.display = 'none';
                     userNameInput.value = '';
+
+                    // モーダルのタイトルに選択した日付を表示
+                    const modalTitle = document.getElementById('modalTitle');
+                    modalTitle.textContent = `${month}月${dayNum}日の練習時間を選択してください`;
 
                     // ここで時間帯取得
                     const url = `/get_time_slots/${year}/${month}/${dayNum}`;
