@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>部活練習希望調査</title>
-    <base href="http://127.0.0.1:5000/">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -105,43 +104,48 @@
                     modalTitle.textContent = `${month}月${dayNum}日の練習時間を選択してください`;
 
                     // ここで時間帯取得
-                    const url = `/get_time_slots/${year}/${month}/${dayNum}`;
-                    const response = await fetch(url);
-                    if (!response.ok) {
+                    const url = `get_time_slots/${year}/${month}/${dayNum}`;
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        const data = await response.json();
+                        modal.style.display = 'block';
+
+                        // ここでモーダルの時間帯ボタンを動的に生成
+                        const timeSlotsDiv = document.querySelector('.time-slots');
+                        timeSlotsDiv.innerHTML = ''; // 既存をクリア
+                        data.time_slots.forEach(slot => {
+                            const btn = document.createElement('button');
+                            btn.className = 'time-slot';
+                            btn.dataset.slot = slot.id;
+                            btn.textContent = slot.label;
+                            btn.onclick = function() {
+                                selectedTimeSlot = slot.id;
+                                document.querySelectorAll('.time-slot').forEach(b => b.classList.remove('selected'));
+                                btn.classList.add('selected');
+                                nameForm.style.display = 'block';
+                            };
+                            timeSlotsDiv.appendChild(btn);
+                            // 予約者名リストを表示
+                            const usersDiv = document.createElement('div');
+                            usersDiv.className = 'slot-users';
+                            usersDiv.style.fontSize = '0.9em';
+                            usersDiv.style.color = '#555';
+                            usersDiv.style.marginBottom = '8px';
+                            if (slot.users && slot.users.length > 0) {
+                                usersDiv.textContent = '予約者: ' + slot.users.join(', ');
+                            } else {
+                                usersDiv.textContent = '';
+                            }
+                            timeSlotsDiv.appendChild(usersDiv);
+                        });
+                    } catch (error) {
+                        console.error('時間帯取得エラー:', error);
                         alert('時間帯の取得に失敗しました。');
                         return;
                     }
-                    const data = await response.json();
-                    modal.style.display = 'block';
-
-                    // ここでモーダルの時間帯ボタンを動的に生成
-                    const timeSlotsDiv = document.querySelector('.time-slots');
-                    timeSlotsDiv.innerHTML = ''; // 既存をクリア
-                    data.time_slots.forEach(slot => {
-                        const btn = document.createElement('button');
-                        btn.className = 'time-slot';
-                        btn.dataset.slot = slot.id;
-                        btn.textContent = slot.label;
-                        btn.onclick = function() {
-                            selectedTimeSlot = slot.id;
-                            document.querySelectorAll('.time-slot').forEach(b => b.classList.remove('selected'));
-                            btn.classList.add('selected');
-                            nameForm.style.display = 'block';
-                        };
-                        timeSlotsDiv.appendChild(btn);
-                        // 予約者名リストを表示
-                        const usersDiv = document.createElement('div');
-                        usersDiv.className = 'slot-users';
-                        usersDiv.style.fontSize = '0.9em';
-                        usersDiv.style.color = '#555';
-                        usersDiv.style.marginBottom = '8px';
-                        if (slot.users && slot.users.length > 0) {
-                            usersDiv.textContent = '予約者: ' + slot.users.join(', ');
-                        } else {
-                            usersDiv.textContent = '';
-                        }
-                        timeSlotsDiv.appendChild(usersDiv);
-                    });
                 });
             });
 
@@ -157,7 +161,7 @@
                     return;
                 }
                 try {
-                    const response = await fetch('/submit_practice', {
+                    const response = await fetch('submit_practice', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -174,6 +178,7 @@
                     modal.style.display = 'none';
                     alert('送信が完了しました！');
                 } catch (error) {
+                    console.error('送信エラー:', error);
                     alert('送信に失敗しました。');
                 }
             });

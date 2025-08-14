@@ -1,9 +1,13 @@
 from flask import Flask, render_template, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 from datetime import datetime, date, timedelta
 import calendar
 
 app = Flask(__name__)
+
+# CORS設定を追加
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # SQLiteデータベース設定
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///reservations.db'
@@ -197,4 +201,8 @@ def update_time_slots():
     return jsonify({'status': 'success'})
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=5000) 
+    import os
+    host = os.environ.get('HOST', '0.0.0.0')
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    app.run(debug=debug, host=host, port=port) 
