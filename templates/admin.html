@@ -34,7 +34,14 @@
                     <div class="slot-users">
                         {% set users = practice_users[date_key][slot] if date_key in practice_users and slot in practice_users[date_key] else [] %}
                         {% if users|length > 0 %}
-                            予約者: {{ users|join(', ') }}
+                            予約者: 
+                            {% for user in users %}
+                                {% if user is mapping and user.name and user.band_name %}
+                                    {{ user.name }}（{{ user.band_name }}）{% if not loop.last %}, {% endif %}
+                                {% elif user is string %}
+                                    {{ user }}{% if not loop.last %}, {% endif %}
+                                {% endif %}
+                            {% endfor %}
                         {% endif %}
                     </div>
                 </li>
