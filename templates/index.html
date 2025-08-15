@@ -69,8 +69,9 @@
                 <!-- JSでボタンを動的生成 -->
             </div>
             <div id="nameForm" style="display:none; margin-top:20px;">
-                <input type="text" id="userName" placeholder="名前を入力してください" style="padding:8px; width:80%;">
-                <button id="submitBtn" style="padding:8px 16px; margin-left:10px;">送信</button>
+                <input type="text" id="userName" placeholder="名前を入力してください" style="padding:8px; width:80%; margin-bottom:10px;">
+                <input type="text" id="bandName" placeholder="バンド名を入力してください" style="padding:8px; width:80%; margin-bottom:10px;">
+                <button id="submitBtn" style="padding:8px 16px;">送信</button>
             </div>
         </div>
     </div>
@@ -84,6 +85,7 @@
             const timeSlots = document.getElementsByClassName('time-slot');
             const nameForm = document.getElementById('nameForm');
             const userNameInput = document.getElementById('userName');
+            const bandNameInput = document.getElementById('bandName');
             const submitBtn = document.getElementById('submitBtn');
             const timeSlotsDiv = document.querySelector('.time-slots');
 
@@ -98,6 +100,7 @@
                     selectedTimeSlot = null;
                     nameForm.style.display = 'none';
                     userNameInput.value = '';
+                    bandNameInput.value = ''; // バンド名もクリア
 
                     // モーダルのタイトルに選択した日付を表示
                     const modalTitle = document.getElementById('modalTitle');
@@ -135,7 +138,22 @@
                             usersDiv.style.color = '#555';
                             usersDiv.style.marginBottom = '8px';
                             if (slot.users && slot.users.length > 0) {
-                                usersDiv.textContent = '予約者: ' + slot.users.join(', ');
+                                // 予約者名とバンド名を「名前（バンド名）」の形式で表示
+                                const userDisplayNames = slot.users.map(user => {
+                                    if (typeof user === 'object' && user.name && user.band_name) {
+                                        return `${user.name}（${user.band_name}）`;
+                                    } else if (typeof user === 'string') {
+                                        // 既存の文字列形式の場合はそのまま表示（後方互換性）
+                                        return user;
+                                    }
+                                    return '';
+                                }).filter(name => name !== '');
+                                
+                                if (userDisplayNames.length > 0) {
+                                    usersDiv.textContent = '予約者: ' + userDisplayNames.join(', ');
+                                } else {
+                                    usersDiv.textContent = '';
+                                }
                             } else {
                                 usersDiv.textContent = '';
                             }
@@ -152,8 +170,13 @@
             // 送信ボタンを押したときの処理
             submitBtn.addEventListener('click', async function() {
                 const userName = userNameInput.value.trim();
+                const bandName = bandNameInput.value.trim();
                 if (!userName) {
                     alert('名前を入力してください');
+                    return;
+                }
+                if (!bandName) {
+                    alert('バンド名を入力してください');
                     return;
                 }
                 if (!selectedTimeSlot) {
@@ -169,7 +192,8 @@
                         body: JSON.stringify({
                             ...selectedDate,
                             time_slot: selectedTimeSlot,
-                            user_name: userName
+                            user_name: userName,
+                            band_name: bandName
                         })
                     });
                     if (!response.ok) {
