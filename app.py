@@ -19,10 +19,11 @@ class PracticeRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date_key = db.Column(db.String(20), nullable=False)  # "YYYY-M-D"
     user_name = db.Column(db.String(50), nullable=False)
+    band_name = db.Column(db.String(100), nullable=False)  # バンド名フィールドを追加
     time_slot = db.Column(db.String(50), nullable=False)
 
     def __repr__(self):
-        return f"<PracticeRequest {self.date_key} {self.user_name} {self.time_slot}>"
+        return f"<PracticeRequest {self.date_key} {self.user_name} {self.band_name} {self.time_slot}>"
 
 # モデル定義（時間枠データ）
 class TimeSlot(db.Model):
@@ -89,7 +90,10 @@ def index():
     for req in all_requests:
         if req.date_key not in practice_requests:
             practice_requests[req.date_key] = {}
-        practice_requests[req.date_key][req.user_name] = req.time_slot
+        practice_requests[req.date_key][req.user_name] = {
+            'time_slot': req.time_slot,
+            'band_name': req.band_name
+        }
         booked_dates.add(req.date_key)
     # DBから時間枠取得
     time_slots = {}
@@ -138,7 +142,12 @@ def admin():
         requests = PracticeRequest.query.filter_by(date_key=date_key).all()
         for req in requests:
             if req.time_slot in users_per_slot:
-                users_per_slot[req.time_slot].append(req.user_name)
+                # 予約者名とバンド名を含むオブジェクトを作成
+                user_info = {
+                    'name': req.user_name,
+                    'band_name': req.band_name
+                }
+                users_per_slot[req.time_slot].append(user_info)
 
         
         practice_users[date_key] = users_per_slot
@@ -155,7 +164,12 @@ def get_time_slots(year, month, day):
     requests = PracticeRequest.query.filter_by(date_key=date_key).all()
     for req in requests:
         if req.time_slot in slot_users:
-            slot_users[req.time_slot].append(req.user_name)
+            # 予約者名とバンド名を含むオブジェクトを作成
+            user_info = {
+                'name': req.user_name,
+                'band_name': req.band_name
+            }
+            slot_users[req.time_slot].append(user_info)
 
     return jsonify({
         'time_slots': [
@@ -170,14 +184,16 @@ def submit_practice():
     print(f"練習希望送信: {data}")  # デバッグ用
     date_key = f"{data['year']}-{data['month']}-{data['day']}"
     user_name = data.get('user_name')
+    band_name = data.get('band_name')  # バンド名を取得
     time_slot = data.get('time_slot')
-    if not user_name or not time_slot:
-        return jsonify({'status': 'error', 'message': '名前と時間帯は必須です'}), 400
+    if not user_name or not band_name or not time_slot:
+        return jsonify({'status': 'error', 'message': '名前、バンド名、時間帯は必須です'}), 400
     existing = PracticeRequest.query.filter_by(date_key=date_key, user_name=user_name).first()
     if existing:
         existing.time_slot = time_slot
+        existing.band_name = band_name  # バンド名も更新
     else:
-        db.session.add(PracticeRequest(date_key=date_key, user_name=user_name, time_slot=time_slot))
+        db.session.add(PracticeRequest(date_key=date_key, user_name=user_name, band_name=band_name, time_slot=time_slot))
 
     db.session.commit()
     return jsonify({'status': 'success'})
