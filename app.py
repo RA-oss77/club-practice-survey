@@ -79,8 +79,19 @@ def index():
             'month_name': month_names[next_month-1],
             'calendar': next_cal
         })
-   # 今日から2週間分
-    valid_dates = {f"{(today + timedelta(days=i)).year}-{(today + timedelta(days=i)).month}-{(today + timedelta(days=i)).day}" for i in range(14)}
+    # 今日を含む週の日曜日を計算
+    days_since_sunday = today.weekday() + 1  # 月曜日=0なので+1して日曜日=0にする
+    if days_since_sunday == 7:  # 日曜日の場合は0にする
+        days_since_sunday = 0
+    current_week_sunday = today - timedelta(days=days_since_sunday)
+    
+    # 2週間分の日曜日から土曜日まで（14日間）
+    valid_dates = set()
+    for week in range(2):  # 2週間
+        week_start = current_week_sunday + timedelta(weeks=week)
+        for day in range(7):  # 日曜日から土曜日まで
+            date = week_start + timedelta(days=day)
+            valid_dates.add(f"{date.year}-{date.month}-{date.day}")
 
     
     # DBから予約データ取得
@@ -122,7 +133,18 @@ def index():
 @app.route('/admin')
 def admin():
     today = date.today()
-    week_dates = [(today + timedelta(days=i)) for i in range(14)]  # 2週間分
+    # 今日を含む週の日曜日を計算
+    days_since_sunday = today.weekday() + 1  # 月曜日=0なので+1して日曜日=0にする
+    if days_since_sunday == 7:  # 日曜日の場合は0にする
+        days_since_sunday = 0
+    current_week_sunday = today - timedelta(days=days_since_sunday)
+    
+    # 2週間分の日曜日から土曜日まで（14日間）
+    week_dates = []
+    for week in range(2):  # 2週間
+        week_start = current_week_sunday + timedelta(weeks=week)
+        for day in range(7):  # 日曜日から土曜日まで
+            week_dates.append(week_start + timedelta(days=day))
     practice_users = {}
 
     # DBから時間枠取得
