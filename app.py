@@ -3,6 +3,10 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from datetime import datetime, date, timedelta
 import calendar
+import threading
+import time
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 app = Flask(__name__)
 
@@ -31,11 +35,69 @@ class TimeSlot(db.Model):
     date_key = db.Column(db.String(20), nullable=False)
     slot = db.Column(db.String(50), nullable=False)
 
+# モデル定義（時間枠変更の一時保存）
+class TimeSlotChange(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date_key = db.Column(db.String(20), nullable=False)
+    slot = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 # DB作成
 with app.app_context():
     db.create_all()
 
 calendar.setfirstweekday(calendar.SUNDAY)
+
+# スケジューラー初期化
+scheduler = BackgroundScheduler()
+
+def apply_time_slot_changes():
+    """毎週日曜日19:00に時間帯変更を反映する関数"""
+    with app.app_context():
+        try:
+            # 時間帯変更の一時保存データを取得
+            changes = TimeSlotChange.query.all()
+            
+            if changes:
+                # 日付ごとにグループ化
+                changes_by_date = {}
+                for change in changes:
+                    if change.date_key not in changes_by_date:
+                        changes_by_date[change.date_key] = []
+                    changes_by_date[change.date_key].append(change.slot)
+                
+                # 各日付の時間帯を更新
+                for date_key, slots in changes_by_date.items():
+                    # 既存の時間帯を削除
+                    TimeSlot.query.filter_by(date_key=date_key).delete()
+                    
+                    # 新しい時間帯を追加
+                    for slot in slots:
+                        db.session.add(TimeSlot(date_key=date_key, slot=slot))
+                
+                # 一時保存データを削除
+                TimeSlotChange.query.delete()
+                
+                db.session.commit()
+                print(f"時間帯変更を反映しました: {len(changes)}件")
+            else:
+                print("反映する時間帯変更はありません")
+                
+        except Exception as e:
+            print(f"時間帯変更の反映でエラーが発生しました: {e}")
+            db.session.rollback()
+
+# 毎週日曜日19:00にスケジュール設定
+scheduler.add_job(
+    func=apply_time_slot_changes,
+    trigger=CronTrigger(day_of_week=6, hour=19, minute=0),  # 日曜日=6, 19:00
+    id='weekly_time_slot_update',
+    name='週次時間帯更新',
+    replace_existing=True
+)
+
+# スケジューラー開始
+scheduler.start()
 
 def get_default_slots(year, month, day):
     import datetime
@@ -154,6 +216,14 @@ def admin():
         if slot.date_key not in time_slots:
             time_slots[slot.date_key] = []
         time_slots[slot.date_key].append(slot.slot)
+    
+    # 一時保存された時間帯変更を取得
+    pending_changes = {}
+    all_changes = TimeSlotChange.query.all()
+    for change in all_changes:
+        if change.date_key not in pending_changes:
+            pending_changes[change.date_key] = []
+        pending_changes[change.date_key].append(change.slot)
 
     for d in week_dates:
         date_key = f"{d.year}-{d.month}-{d.day}"
@@ -173,7 +243,18 @@ def admin():
 
         
         practice_users[date_key] = users_per_slot
-    return render_template('admin.html', week_dates=week_dates, time_slots=time_slots, practice_users=practice_users, get_default_slots=get_default_slots)
+    
+    # 次回反映予定時刻を計算
+    next_sunday = current_week_sunday + timedelta(weeks=1)
+    next_update_time = datetime.combine(next_sunday, datetime.min.time().replace(hour=19, minute=0))
+    
+    return render_template('admin.html', 
+                         week_dates=week_dates, 
+                         time_slots=time_slots, 
+                         practice_users=practice_users, 
+                         get_default_slots=get_default_slots,
+                         pending_changes=pending_changes,
+                         next_update_time=next_update_time)
 
 @app.route('/get_time_slots/<int:year>/<int:month>/<int:day>')
 def get_time_slots(year, month, day):
@@ -230,13 +311,16 @@ def update_time_slots():
     # ゼロ埋めなしのキーに変換
     y, m, d = [int(x) for x in date_str.split('-')]
     key = f'{y}-{m}-{d}'
-    # 既存スロット削除して新規追加
-    TimeSlot.query.filter_by(date_key=key).delete()
+    
+    # 既存の一時保存データを削除
+    TimeSlotChange.query.filter_by(date_key=key).delete()
+    
+    # 新しい時間帯を一時保存
     for slot in slots:
-        db.session.add(TimeSlot(date_key=key, slot=slot))
+        db.session.add(TimeSlotChange(date_key=key, slot=slot))
 
     db.session.commit()
-    return jsonify({'status': 'success'})
+    return jsonify({'status': 'success', 'message': '時間帯変更を一時保存しました。毎週日曜日19:00に反映されます。'})
 
 if __name__ == '__main__':
     import os

@@ -21,12 +21,21 @@
 <body>
     <div class="container">
         <h1>時間帯編集</h1>
+        <div style="background: #e7f3ff; padding: 12px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #007bff;">
+            <strong>次回反映予定:</strong> {{ next_update_time.strftime('%Y年%m月%d日 %H:%M') }}<br>
+            <small>時間帯の変更は毎週日曜日19:00にまとめて反映されます</small>
+        </div>
         {% for d in week_dates %}
         <div class="date-block" data-date="{{ d.strftime('%Y-%m-%d') }}">
             <div class="date-label">{{ d.strftime('%Y-%m-%d（%a）') }}</div>
             <ul class="time-list">
                 {% set date_key = d.year ~ '-' ~ d.month ~ '-' ~ d.day %}
-                {% set slots = time_slots.get(date_key, get_default_slots(d.year, d.month, d.day)) %}
+                {% set slots = pending_changes.get(date_key, time_slots.get(date_key, get_default_slots(d.year, d.month, d.day))) %}
+                {% if pending_changes.get(date_key) %}
+                <div style="background: #fff3cd; padding: 8px; border-radius: 4px; margin-bottom: 8px; border-left: 3px solid #ffc107;">
+                    <small><strong>変更予定:</strong> 以下の時間帯は次回反映時に更新されます</small>
+                </div>
+                {% endif %}
                 {% for slot in slots %}
                 <li>
                     <input type="text" value="{{ slot }}" class="slot-input">
@@ -86,11 +95,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ date, slots })
             });
+            const result = await res.json();
             if (res.ok) {
-                status.textContent = '保存しました';
-                setTimeout(() => { status.textContent = ''; }, 1500);
+                status.textContent = result.message || '保存しました';
+                setTimeout(() => { status.textContent = ''; }, 3000);
             } else {
-                status.textContent = '保存失敗';
+                status.textContent = result.message || '保存失敗';
             }
         };
     });
