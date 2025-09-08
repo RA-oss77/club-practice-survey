@@ -7,6 +7,7 @@ import threading
 import time
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.events import EVENT_JOB_ERROR
 
 app = Flask(__name__)
 
@@ -43,13 +44,23 @@ class TimeSlotChange(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # DB作成
-with app.app_context():
-    db.create_all()
+try:
+    with app.app_context():
+        db.create_all()
+        print("データベースが正常に初期化されました")
+except Exception as e:
+    print(f"データベース初期化でエラーが発生しました: {e}")
 
 calendar.setfirstweekday(calendar.SUNDAY)
 
 # スケジューラー初期化
 scheduler = BackgroundScheduler()
+
+# スケジューラーのエラーハンドリング
+def scheduler_error_handler(job_id, exception):
+    print(f"スケジューラーエラー (Job ID: {job_id}): {exception}")
+
+scheduler.add_listener(scheduler_error_handler, EVENT_JOB_ERROR)
 
 def apply_time_slot_changes():
     """毎週日曜日19:00に時間帯変更を反映する関数"""
@@ -97,7 +108,11 @@ scheduler.add_job(
 )
 
 # スケジューラー開始
-scheduler.start()
+try:
+    scheduler.start()
+    print("スケジューラーが正常に開始されました")
+except Exception as e:
+    print(f"スケジューラーの開始でエラーが発生しました: {e}")
 
 def get_default_slots(year, month, day):
     import datetime
@@ -109,92 +124,105 @@ def get_default_slots(year, month, day):
 
 @app.route('/', methods=['GET', 'HEAD'])
 def index():
-    # HEADリクエストの場合は空のレスポンスを返す
-    if request.method == 'HEAD':
-        return '', 200
-    
-    today = date.today()
-    year = today.year
-    month = today.month
-    cal = calendar.monthcalendar(year, month)
-    month_names = ['1月', '2月', '3月', '4月', '5月', '6月', 
-                  '7月', '8月', '9月', '10月', '11月', '12月']
-    # 今月の残り日数を計算
-    import calendar as calmod
-    last_day = calmod.monthrange(year, month)[1]
-    days_left = last_day - today.day
-    calendars = [
-        {
-            'year': year,
-            'month': month,
-            'month_name': month_names[month-1],
-            'calendar': cal
-        }
-    ]
-    # 残り1週間以内なら来月分も追加
-    if days_left < 7:
-        next_month = month + 1
-        next_year = year
-        if next_month > 12:
-            next_month = 1
-            next_year += 1
-        next_cal = calendar.monthcalendar(next_year, next_month)
-        calendars.append({
-            'year': next_year,
-            'month': next_month,
-            'month_name': month_names[next_month-1],
-            'calendar': next_cal
-        })
-    # 今日を含む週の日曜日を計算
-    days_since_sunday = today.weekday() + 1  # 月曜日=0なので+1して日曜日=0にする
-    if days_since_sunday == 7:  # 日曜日の場合は0にする
-        days_since_sunday = 0
-    current_week_sunday = today - timedelta(days=days_since_sunday)
-    
-    # 2週間分の日曜日から土曜日まで（14日間）
-    valid_dates = set()
-    for week in range(2):  # 2週間
-        week_start = current_week_sunday + timedelta(weeks=week)
-        for day in range(7):  # 日曜日から土曜日まで
-            date = week_start + timedelta(days=day)
-            valid_dates.add(f"{date.year}-{date.month}-{date.day}")
+    try:
+        # HEADリクエストの場合は空のレスポンスを返す
+        if request.method == 'HEAD':
+            return '', 200
+        
+        today = date.today()
+        year = today.year
+        month = today.month
+        cal = calendar.monthcalendar(year, month)
+        month_names = ['1月', '2月', '3月', '4月', '5月', '6月', 
+                      '7月', '8月', '9月', '10月', '11月', '12月']
+        # 今月の残り日数を計算
+        import calendar as calmod
+        last_day = calmod.monthrange(year, month)[1]
+        days_left = last_day - today.day
+        calendars = [
+            {
+                'year': year,
+                'month': month,
+                'month_name': month_names[month-1],
+                'calendar': cal
+            }
+        ]
+        # 残り1週間以内なら来月分も追加
+        if days_left < 7:
+            next_month = month + 1
+            next_year = year
+            if next_month > 12:
+                next_month = 1
+                next_year += 1
+            next_cal = calendar.monthcalendar(next_year, next_month)
+            calendars.append({
+                'year': next_year,
+                'month': next_month,
+                'month_name': month_names[next_month-1],
+                'calendar': next_cal
+            })
+        # 今日を含む週の日曜日を計算
+        days_since_sunday = today.weekday() + 1  # 月曜日=0なので+1して日曜日=0にする
+        if days_since_sunday == 7:  # 日曜日の場合は0にする
+            days_since_sunday = 0
+        current_week_sunday = today - timedelta(days=days_since_sunday)
+        
+        # 2週間分の日曜日から土曜日まで（14日間）
+        valid_dates = set()
+        for week in range(2):  # 2週間
+            week_start = current_week_sunday + timedelta(weeks=week)
+            for day in range(7):  # 日曜日から土曜日まで
+                date = week_start + timedelta(days=day)
+                valid_dates.add(f"{date.year}-{date.month}-{date.day}")
 
-    
-    # DBから予約データ取得
-    practice_requests = {}
-    booked_dates = set()
-    all_requests = PracticeRequest.query.all()
-    for req in all_requests:
-        if req.date_key not in practice_requests:
-            practice_requests[req.date_key] = {}
-        practice_requests[req.date_key][req.user_name] = {
-            'time_slot': req.time_slot,
-            'band_name': req.band_name
-        }
-        booked_dates.add(req.date_key)
-    # DBから時間枠取得
-    time_slots = {}
-    all_slots = TimeSlot.query.all()
-    for slot in all_slots:
-        if slot.date_key not in time_slots:
-            time_slots[slot.date_key] = []
-        time_slots[slot.date_key].append(slot.slot)
+        
+        # DBから予約データ取得
+        practice_requests = {}
+        booked_dates = set()
+        try:
+            all_requests = PracticeRequest.query.all()
+            for req in all_requests:
+                if req.date_key not in practice_requests:
+                    practice_requests[req.date_key] = {}
+                practice_requests[req.date_key][req.user_name] = {
+                    'time_slot': req.time_slot,
+                    'band_name': req.band_name
+                }
+                booked_dates.add(req.date_key)
+        except Exception as e:
+            print(f"予約データ取得でエラー: {e}")
+            practice_requests = {}
+            booked_dates = set()
+            
+        # DBから時間枠取得
+        time_slots = {}
+        try:
+            all_slots = TimeSlot.query.all()
+            for slot in all_slots:
+                if slot.date_key not in time_slots:
+                    time_slots[slot.date_key] = []
+                time_slots[slot.date_key].append(slot.slot)
+        except Exception as e:
+            print(f"時間枠データ取得でエラー: {e}")
+            time_slots = {}
 
-
-    
-    return render_template(
-        'index.html',
-        calendars=calendars,
-        month=month_names[month-1],
-        month_num=month,
-        year=year,
-        today=today,
-        practice_requests=practice_requests,
-        time_slots=time_slots,
-        get_default_slots=get_default_slots,
-        valid_dates=valid_dates,
-        booked_dates=booked_dates
-    )
+        
+        return render_template(
+            'index.html',
+            calendars=calendars,
+            month=month_names[month-1],
+            month_num=month,
+            year=year,
+            today=today,
+            practice_requests=practice_requests,
+            time_slots=time_slots,
+            get_default_slots=get_default_slots,
+            valid_dates=valid_dates,
+            booked_dates=booked_dates
+        )
+    except Exception as e:
+        print(f"index関数でエラーが発生しました: {e}")
+        return f"エラーが発生しました: {str(e)}", 500
 
 @app.route('/admin')
 def admin():
