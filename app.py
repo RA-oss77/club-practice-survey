@@ -107,8 +107,12 @@ def get_default_slots(year, month, day):
     else:
         return ['〜16:50', '16:50〜18:00']
 
-@app.route('/')
+@app.route('/', methods=['GET', 'HEAD'])
 def index():
+    # HEADリクエストの場合は空のレスポンスを返す
+    if request.method == 'HEAD':
+        return '', 200
+    
     today = date.today()
     year = today.year
     month = today.month
