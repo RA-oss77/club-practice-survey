@@ -115,8 +115,7 @@ except Exception as e:
     print(f"スケジューラーの開始でエラーが発生しました: {e}")
 
 def get_default_slots(year, month, day):
-    import datetime
-    dt = datetime.date(year, month, day)
+    dt = date(year, month, day)
     if dt.weekday() == 5 or dt.weekday() == 6:  # 5:土, 6:日
         return ['12:30~14:30', '14:30~16:30']
     else:
@@ -172,8 +171,8 @@ def index():
         for week in range(2):  # 2週間
             week_start = current_week_sunday + timedelta(weeks=week)
             for day in range(7):  # 日曜日から土曜日まで
-                date = week_start + timedelta(days=day)
-                valid_dates.add(f"{date.year}-{date.month}-{date.day}")
+                current_date = week_start + timedelta(days=day)
+                valid_dates.add(f"{current_date.year}-{current_date.month}-{current_date.day}")
 
         
         # DBから予約データ取得
