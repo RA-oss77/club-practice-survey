@@ -25,11 +25,12 @@
             <strong>次回反映予定:</strong> {{ next_update_time.strftime('%Y年%m月%d日 %H:%M') }}<br>
             <small>時間帯の変更は毎週日曜日19:00にまとめて反映されます</small>
         </div>
-        {% for d in week_dates %}
+        {% for d_info in week_dates %}
+        {% set d = d_info.date %}
         <div class="date-block" data-date="{{ d.strftime('%Y-%m-%d') }}">
-            {% if d.weekday() == 6 and d.week_label %}
+            {% if d.weekday() == 6 and d_info.week_label %}
             <div style="background: #007bff; color: white; padding: 8px; margin: -12px -12px 12px -12px; border-radius: 6px 6px 0 0; text-align: center; font-weight: bold; font-size: 1.1em;">
-                {{ d.week_label }}
+                {{ d_info.week_label }}
             </div>
             {% endif %}
             <div class="date-label">{{ d.strftime('%Y-%m-%d（%a）') }}</div>

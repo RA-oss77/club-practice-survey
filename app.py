@@ -239,10 +239,12 @@ def admin():
         week_start = current_week_sunday + timedelta(weeks=week)
         for day in range(7):  # 日曜日から土曜日まで
             current_date = week_start + timedelta(days=day)
-            week_dates.append(current_date)
-            # 日曜日の場合のみ週ラベルを設定
-            if day == 0:  # 日曜日
-                current_date.week_label = week_labels[week]
+            # 日付オブジェクトに週ラベル情報を辞書として追加
+            date_info = {
+                'date': current_date,
+                'week_label': week_labels[week] if day == 0 else None
+            }
+            week_dates.append(date_info)
     practice_users = {}
 
     # DBから時間枠取得
@@ -261,7 +263,8 @@ def admin():
             pending_changes[change.date_key] = []
         pending_changes[change.date_key].append(change.slot)
 
-    for d in week_dates:
+    for d_info in week_dates:
+        d = d_info['date']  # 実際の日付オブジェクトを取得
         date_key = f"{d.year}-{d.month}-{d.day}"
         slots = time_slots.get(date_key, get_default_slots(d.year, d.month, d.day))
         users_per_slot = {slot: [] for slot in slots}
