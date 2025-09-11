@@ -166,9 +166,9 @@ def index():
             days_since_sunday = 0
         current_week_sunday = today - timedelta(days=days_since_sunday)
         
-        # 2週間分の日曜日から土曜日まで（14日間）
+        # 3週間分の日曜日から土曜日まで（21日間）
         valid_dates = set()
-        for week in range(2):  # 2週間
+        for week in range(3):  # 3週間
             week_start = current_week_sunday + timedelta(weeks=week)
             for day in range(7):  # 日曜日から土曜日まで
                 current_date = week_start + timedelta(days=day)
@@ -232,12 +232,17 @@ def admin():
         days_since_sunday = 0
     current_week_sunday = today - timedelta(days=days_since_sunday)
     
-    # 2週間分の日曜日から土曜日まで（14日間）
+    # 3週間分の日曜日から土曜日まで（21日間）
     week_dates = []
-    for week in range(2):  # 2週間
+    week_labels = ['今週', '来週', '再来週']
+    for week in range(3):  # 3週間
         week_start = current_week_sunday + timedelta(weeks=week)
         for day in range(7):  # 日曜日から土曜日まで
-            week_dates.append(week_start + timedelta(days=day))
+            current_date = week_start + timedelta(days=day)
+            week_dates.append(current_date)
+            # 日曜日の場合のみ週ラベルを設定
+            if day == 0:  # 日曜日
+                current_date.week_label = week_labels[week]
     practice_users = {}
 
     # DBから時間枠取得

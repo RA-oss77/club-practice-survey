@@ -27,6 +27,11 @@
         </div>
         {% for d in week_dates %}
         <div class="date-block" data-date="{{ d.strftime('%Y-%m-%d') }}">
+            {% if d.weekday() == 6 and d.week_label %}
+            <div style="background: #007bff; color: white; padding: 8px; margin: -12px -12px 12px -12px; border-radius: 6px 6px 0 0; text-align: center; font-weight: bold; font-size: 1.1em;">
+                {{ d.week_label }}
+            </div>
+            {% endif %}
             <div class="date-label">{{ d.strftime('%Y-%m-%d（%a）') }}</div>
             <ul class="time-list">
                 {% set date_key = d.year ~ '-' ~ d.month ~ '-' ~ d.day %}
