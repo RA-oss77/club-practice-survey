@@ -24,6 +24,14 @@
         <div style="background: #e7f3ff; padding: 12px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #007bff;">
             <strong>次回反映予定:</strong> {{ next_update_time.strftime('%Y年%m月%d日 %H:%M') }}<br>
             <small>時間帯の変更は毎週日曜日19:00にまとめて反映されます</small>
+            {% if pending_changes %}
+            <div style="margin-top: 12px;">
+                <button id="apply-now-btn" style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    🚨 緊急時：即時反映
+                </button>
+                <span id="apply-status" style="margin-left: 10px; font-weight: bold;"></span>
+            </div>
+            {% endif %}
         </div>
         {% for d_info in week_dates %}
         {% set d = d_info.date %}
@@ -110,6 +118,66 @@
             }
         };
     });
+
+    // 即時反映ボタンの処理
+    const applyNowBtn = document.getElementById('apply-now-btn');
+    const applyStatus = document.getElementById('apply-status');
+    
+    if (applyNowBtn) {
+        applyNowBtn.onclick = async function() {
+            // 確認ダイアログ
+            const confirmed = confirm(
+                '緊急時の即時反映を実行しますか？\n\n' +
+                '⚠️ 注意：この操作により、一時保存されている時間帯変更がすべて即座に反映されます。\n' +
+                '既に予約が入っている時間帯を変更すると、予約者に影響が出る可能性があります。\n\n' +
+                '本当に実行しますか？'
+            );
+            
+            if (!confirmed) return;
+            
+            applyNowBtn.disabled = true;
+            applyNowBtn.textContent = '処理中...';
+            applyStatus.textContent = '';
+            
+            try {
+                const res = await fetch('/admin/apply_changes_now', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await res.json();
+                
+                if (res.ok) {
+                    if (result.status === 'success') {
+                        applyStatus.textContent = result.message;
+                        applyStatus.style.color = '#28a745';
+                        
+                        // 3秒後にページをリロード
+                        setTimeout(() => {
+                            location.reload();
+                        }, 3000);
+                    } else {
+                        applyStatus.textContent = result.message;
+                        applyStatus.style.color = '#ffc107';
+                    }
+                } else {
+                    applyStatus.textContent = result.message || '更新に失敗しました';
+                    applyStatus.style.color = '#dc3545';
+                }
+            } catch (error) {
+                applyStatus.textContent = 'エラーが発生しました: ' + error.message;
+                applyStatus.style.color = '#dc3545';
+            } finally {
+                applyNowBtn.disabled = false;
+                applyNowBtn.textContent = '🚨 緊急時：即時反映';
+                
+                // 5秒後にステータスメッセージをクリア
+                setTimeout(() => {
+                    applyStatus.textContent = '';
+                }, 5000);
+            }
+        };
+    }
     </script>
 </body>
 </html> 

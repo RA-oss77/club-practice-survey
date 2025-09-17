@@ -166,9 +166,9 @@ def index():
             days_since_sunday = 0
         current_week_sunday = today - timedelta(days=days_since_sunday)
         
-        # 3週間分の日曜日から土曜日まで（21日間）
+        # 2週間分の日曜日から土曜日まで（14日間）
         valid_dates = set()
-        for week in range(3):  # 3週間
+        for week in range(2):  # 2週間
             week_start = current_week_sunday + timedelta(weeks=week)
             for day in range(7):  # 日曜日から土曜日まで
                 current_date = week_start + timedelta(days=day)
@@ -360,6 +360,48 @@ def update_time_slots():
 
     db.session.commit()
     return jsonify({'status': 'success', 'message': '時間帯変更を一時保存しました。毎週日曜日19:00に反映されます。'})
+
+@app.route('/admin/apply_changes_now', methods=['POST'])
+def apply_changes_now():
+    """管理者による即時更新"""
+    try:
+        # 時間帯変更の一時保存データを取得
+        changes = TimeSlotChange.query.all()
+        
+        if not changes:
+            return jsonify({'status': 'info', 'message': '反映する変更がありません。'})
+        
+        # 日付ごとにグループ化
+        changes_by_date = {}
+        for change in changes:
+            if change.date_key not in changes_by_date:
+                changes_by_date[change.date_key] = []
+            changes_by_date[change.date_key].append(change.slot)
+        
+        # 各日付の時間帯を更新
+        for date_key, slots in changes_by_date.items():
+            # 既存の時間帯を削除
+            TimeSlot.query.filter_by(date_key=date_key).delete()
+            
+            # 新しい時間帯を追加
+            for slot in slots:
+                db.session.add(TimeSlot(date_key=date_key, slot=slot))
+        
+        # 一時保存データを削除
+        TimeSlotChange.query.delete()
+        
+        db.session.commit()
+        
+        print(f"管理者による即時更新: {len(changes)}件の変更を反映しました")
+        return jsonify({
+            'status': 'success', 
+            'message': f'{len(changes_by_date)}日分の時間帯変更を即座に反映しました。'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"即時更新でエラーが発生しました: {e}")
+        return jsonify({'status': 'error', 'message': f'更新に失敗しました: {str(e)}'}), 500
 
 if __name__ == '__main__':
     import os
