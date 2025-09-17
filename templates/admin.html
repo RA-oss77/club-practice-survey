@@ -27,7 +27,7 @@
             {% if pending_changes %}
             <div style="margin-top: 12px;">
                 <button id="apply-now-btn" style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
-                    🚨 緊急時：即時反映
+                    即時反映
                 </button>
                 <span id="apply-status" style="margin-left: 10px; font-weight: bold;"></span>
             </div>
@@ -126,12 +126,7 @@
     if (applyNowBtn) {
         applyNowBtn.onclick = async function() {
             // 確認ダイアログ
-            const confirmed = confirm(
-                '緊急時の即時反映を実行しますか？\n\n' +
-                '⚠️ 注意：この操作により、一時保存されている時間帯変更がすべて即座に反映されます。\n' +
-                '既に予約が入っている時間帯を変更すると、予約者に影響が出る可能性があります。\n\n' +
-                '本当に実行しますか？'
-            );
+            const confirmed = confirm('即時反映を実行しますか？');
             
             if (!confirmed) return;
             
@@ -169,7 +164,7 @@
                 applyStatus.style.color = '#dc3545';
             } finally {
                 applyNowBtn.disabled = false;
-                applyNowBtn.textContent = '🚨 緊急時：即時反映';
+                applyNowBtn.textContent = '即時反映';
                 
                 // 5秒後にステータスメッセージをクリア
                 setTimeout(() => {
