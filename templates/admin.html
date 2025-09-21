@@ -44,7 +44,7 @@
             <div class="date-label">{{ d.strftime('%Y-%m-%d（%a）') }}</div>
             <ul class="time-list">
                 {% set date_key = d.year ~ '-' ~ d.month ~ '-' ~ d.day %}
-                {% set slots = pending_changes.get(date_key, time_slots.get(date_key, get_default_slots(d.year, d.month, d.day))) %}
+                {% set slots = pending_changes.get(date_key, time_slots.get(date_key, [])) %}
                 {% if pending_changes.get(date_key) %}
                 <div style="background: #fff3cd; padding: 8px; border-radius: 4px; margin-bottom: 8px; border-left: 3px solid #ffc107;">
                     <small><strong>変更予定:</strong> 以下の時間帯は次回反映時に更新されます</small>
@@ -72,6 +72,9 @@
             </ul>
             <input type="text" class="new-slot-input" placeholder="新しい時間帯を追加">
             <button class="add-btn">追加</button>
+            {% if not slots %}
+            <button class="default-btn" style="background: #28a745; color: white; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer; margin-right: 8px;">デフォルト時間帯を設定</button>
+            {% endif %}
             <button class="save-btn">保存</button>
             <span class="save-status" style="margin-left:10px;color:#007bff;"></span>
         </div>
@@ -84,6 +87,7 @@
         const addBtn = block.querySelector('.add-btn');
         const newSlotInput = block.querySelector('.new-slot-input');
         const saveBtn = block.querySelector('.save-btn');
+        const defaultBtn = block.querySelector('.default-btn');
         const status = block.querySelector('.save-status');
 
         // 追加
@@ -95,6 +99,30 @@
             timeList.appendChild(li);
             newSlotInput.value = '';
         };
+        
+        // デフォルト時間帯を設定
+        if (defaultBtn) {
+            defaultBtn.onclick = function() {
+                const dateObj = new Date(date);
+                const dayOfWeek = dateObj.getDay(); // 0=日曜日, 6=土曜日
+                let defaultSlots = [];
+                
+                if (dayOfWeek === 0 || dayOfWeek === 6) { // 日曜日または土曜日
+                    defaultSlots = ['12:30~14:30', '14:30~16:30'];
+                } else { // 平日
+                    defaultSlots = ['〜16:50', '16:50〜18:00'];
+                }
+                
+                defaultSlots.forEach(slot => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<input type="text" value="${slot}" class="slot-input"> <button class="edit-btn del-btn">削除</button><div class='slot-users'></div>`;
+                    timeList.appendChild(li);
+                });
+                
+                // デフォルトボタンを隠す
+                defaultBtn.style.display = 'none';
+            };
+        }
         // 削除
         timeList.addEventListener('click', function(e) {
             if (e.target.classList.contains('del-btn')) {

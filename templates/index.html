@@ -36,7 +36,7 @@
                                 {% set y = calinfo.year|int %}
                                 {% set m = calinfo.month|int %}
                                 {% set date_key = y ~ '-' ~ m ~ '-' ~ d %}
-                                {% set slots = time_slots.get(date_key, get_default_slots(y, m, d)) %}
+                                {% set slots = time_slots.get(date_key, []) %}
                                 {% set is_past = (y == today.year and m == today.month and d < today.day) or
                                                  (y == today.year and m < today.month) or
                                                  (y < today.year) %}

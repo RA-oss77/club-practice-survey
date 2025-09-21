@@ -271,7 +271,7 @@ def admin():
     for d_info in week_dates:
         d = d_info['date']  # 実際の日付オブジェクトを取得
         date_key = f"{d.year}-{d.month}-{d.day}"
-        slots = time_slots.get(date_key, get_default_slots(d.year, d.month, d.day))
+        slots = time_slots.get(date_key, [])
         users_per_slot = {slot: [] for slot in slots}
         
         # DBからこの日付の予約を取得
@@ -304,8 +304,7 @@ def admin():
 def get_time_slots(year, month, day):
     date_key = f"{year}-{month}-{day}"
     slots = [s.slot for s in TimeSlot.query.filter_by(date_key=date_key).all()]
-    if not slots:
-        slots = get_default_slots(year, month, day)
+    # デフォルト時間帯のフォールバックを削除 - 空の場合は空のまま返す
 
     slot_users = {slot: [] for slot in slots}
     requests = PracticeRequest.query.filter_by(date_key=date_key).all()
