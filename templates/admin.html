@@ -24,14 +24,17 @@
         <div style="background: #e7f3ff; padding: 12px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #007bff;">
             <strong>次回反映予定:</strong> {{ next_update_time.strftime('%Y年%m月%d日 %H:%M') }}<br>
             <small>時間帯の変更は毎週日曜日19:00にまとめて反映されます</small>
-            {% if pending_changes %}
             <div style="margin-top: 12px;">
-                <button id="apply-now-btn" style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                {% if pending_changes %}
+                <button id="apply-now-btn" style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 8px;">
                     即時反映
                 </button>
-                <span id="apply-status" style="margin-left: 10px; font-weight: bold;"></span>
+                {% endif %}
+                <button id="initialize-slots-btn" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    初期時間帯設定
+                </button>
+                <span id="action-status" style="margin-left: 10px; font-weight: bold;"></span>
             </div>
-            {% endif %}
         </div>
         {% for d_info in week_dates %}
         {% set d = d_info.date %}
@@ -150,7 +153,8 @@
 
     // 即時反映ボタンの処理
     const applyNowBtn = document.getElementById('apply-now-btn');
-    const applyStatus = document.getElementById('apply-status');
+    const initializeSlotsBtn = document.getElementById('initialize-slots-btn');
+    const actionStatus = document.getElementById('action-status');
     
     if (applyNowBtn) {
         applyNowBtn.onclick = async function() {
@@ -161,7 +165,7 @@
             
             applyNowBtn.disabled = true;
             applyNowBtn.textContent = '処理中...';
-            applyStatus.textContent = '';
+            actionStatus.textContent = '';
             
             try {
                 const res = await fetch('/admin/apply_changes_now', {
@@ -173,31 +177,83 @@
                 
                 if (res.ok) {
                     if (result.status === 'success') {
-                        applyStatus.textContent = result.message;
-                        applyStatus.style.color = '#28a745';
+                        actionStatus.textContent = result.message;
+                        actionStatus.style.color = '#28a745';
                         
                         // 3秒後にページをリロード
                         setTimeout(() => {
                             location.reload();
                         }, 3000);
                     } else {
-                        applyStatus.textContent = result.message;
-                        applyStatus.style.color = '#ffc107';
+                        actionStatus.textContent = result.message;
+                        actionStatus.style.color = '#ffc107';
                     }
                 } else {
-                    applyStatus.textContent = result.message || '更新に失敗しました';
-                    applyStatus.style.color = '#dc3545';
+                    actionStatus.textContent = result.message || '更新に失敗しました';
+                    actionStatus.style.color = '#dc3545';
                 }
             } catch (error) {
-                applyStatus.textContent = 'エラーが発生しました: ' + error.message;
-                applyStatus.style.color = '#dc3545';
+                actionStatus.textContent = 'エラーが発生しました: ' + error.message;
+                actionStatus.style.color = '#dc3545';
             } finally {
                 applyNowBtn.disabled = false;
                 applyNowBtn.textContent = '即時反映';
                 
                 // 5秒後にステータスメッセージをクリア
                 setTimeout(() => {
-                    applyStatus.textContent = '';
+                    actionStatus.textContent = '';
+                }, 5000);
+            }
+        };
+    }
+    
+    // 初期時間帯設定ボタンの処理
+    if (initializeSlotsBtn) {
+        initializeSlotsBtn.onclick = async function() {
+            // 確認ダイアログ
+            const confirmed = confirm('時間帯が設定されていない日付にデフォルト時間帯を設定しますか？');
+            
+            if (!confirmed) return;
+            
+            initializeSlotsBtn.disabled = true;
+            initializeSlotsBtn.textContent = '設定中...';
+            actionStatus.textContent = '';
+            
+            try {
+                const res = await fetch('/admin/initialize_default_slots', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await res.json();
+                
+                if (res.ok) {
+                    if (result.status === 'success') {
+                        actionStatus.textContent = result.message;
+                        actionStatus.style.color = '#28a745';
+                        
+                        // 3秒後にページをリロード
+                        setTimeout(() => {
+                            location.reload();
+                        }, 3000);
+                    } else {
+                        actionStatus.textContent = result.message;
+                        actionStatus.style.color = '#ffc107';
+                    }
+                } else {
+                    actionStatus.textContent = result.message || '設定に失敗しました';
+                    actionStatus.style.color = '#dc3545';
+                }
+            } catch (error) {
+                actionStatus.textContent = 'エラーが発生しました: ' + error.message;
+                actionStatus.style.color = '#dc3545';
+            } finally {
+                initializeSlotsBtn.disabled = false;
+                initializeSlotsBtn.textContent = '初期時間帯設定';
+                
+                // 5秒後にステータスメッセージをクリア
+                setTimeout(() => {
+                    actionStatus.textContent = '';
                 }, 5000);
             }
         };

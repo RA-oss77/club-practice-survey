@@ -47,6 +47,31 @@ class TimeSlotChange(db.Model):
 try:
     with app.app_context():
         db.create_all()
+        
+        # 初期時間帯を設定（既存のデータがない場合のみ）
+        existing_slots = TimeSlot.query.first()
+        if not existing_slots:
+            # 今日を含む週の日曜日を計算
+            today = date.today()
+            days_since_sunday = today.weekday() + 1  # 月曜日=0なので+1して日曜日=0にする
+            if days_since_sunday == 7:  # 日曜日の場合は0にする
+                days_since_sunday = 0
+            current_week_sunday = today - timedelta(days=days_since_sunday)
+            
+            # 3週間分の日曜日から土曜日まで（21日間）にデフォルト時間帯を設定
+            for week in range(3):  # 3週間
+                week_start = current_week_sunday + timedelta(weeks=week)
+                for day in range(7):  # 日曜日から土曜日まで
+                    current_date = week_start + timedelta(days=day)
+                    date_key = f"{current_date.year}-{current_date.month}-{current_date.day}"
+                    default_slots = get_default_slots(current_date.year, current_date.month, current_date.day)
+                    
+                    for slot in default_slots:
+                        db.session.add(TimeSlot(date_key=date_key, slot=slot))
+            
+            db.session.commit()
+            print("初期時間帯を設定しました")
+        
         print("データベースが正常に初期化されました")
 except Exception as e:
     print(f"データベース初期化でエラーが発生しました: {e}")
@@ -94,6 +119,29 @@ def apply_time_slot_changes():
                 print(f"時間帯変更を反映しました: {len(changes)}件")
             else:
                 print("反映する時間帯変更はありません")
+            
+            # 新しい週のデフォルト時間帯を設定
+            today = date.today()
+            # 3週間後の日曜日から土曜日まで（7日間）の時間帯を設定
+            three_weeks_later = today + timedelta(weeks=3)
+            days_since_sunday = three_weeks_later.weekday() + 1
+            if days_since_sunday == 7:
+                days_since_sunday = 0
+            week_start = three_weeks_later - timedelta(days=days_since_sunday)
+            
+            for day in range(7):  # 日曜日から土曜日まで
+                current_date = week_start + timedelta(days=day)
+                date_key = f"{current_date.year}-{current_date.month}-{current_date.day}"
+                
+                # 既存の時間帯がない場合のみデフォルト時間帯を設定
+                existing = TimeSlot.query.filter_by(date_key=date_key).first()
+                if not existing:
+                    default_slots = get_default_slots(current_date.year, current_date.month, current_date.day)
+                    for slot in default_slots:
+                        db.session.add(TimeSlot(date_key=date_key, slot=slot))
+            
+            db.session.commit()
+            print("新しい週のデフォルト時間帯を設定しました")
                 
         except Exception as e:
             print(f"時間帯変更の反映でエラーが発生しました: {e}")
@@ -411,6 +459,52 @@ def apply_changes_now():
         db.session.rollback()
         print(f"即時更新でエラーが発生しました: {e}")
         return jsonify({'status': 'error', 'message': f'更新に失敗しました: {str(e)}'}), 500
+
+@app.route('/admin/initialize_default_slots', methods=['POST'])
+def initialize_default_slots():
+    """管理者による初期時間帯設定"""
+    try:
+        # 今日を含む週の日曜日を計算
+        today = date.today()
+        days_since_sunday = today.weekday() + 1  # 月曜日=0なので+1して日曜日=0にする
+        if days_since_sunday == 7:  # 日曜日の場合は0にする
+            days_since_sunday = 0
+        current_week_sunday = today - timedelta(days=days_since_sunday)
+        
+        # 3週間分の日曜日から土曜日まで（21日間）にデフォルト時間帯を設定
+        count = 0
+        for week in range(3):  # 3週間
+            week_start = current_week_sunday + timedelta(weeks=week)
+            for day in range(7):  # 日曜日から土曜日まで
+                current_date = week_start + timedelta(days=day)
+                date_key = f"{current_date.year}-{current_date.month}-{current_date.day}"
+                
+                # 既存の時間帯がない場合のみデフォルト時間帯を設定
+                existing = TimeSlot.query.filter_by(date_key=date_key).first()
+                if not existing:
+                    default_slots = get_default_slots(current_date.year, current_date.month, current_date.day)
+                    for slot in default_slots:
+                        db.session.add(TimeSlot(date_key=date_key, slot=slot))
+                    count += 1
+        
+        db.session.commit()
+        
+        if count > 0:
+            print(f"管理者による初期時間帯設定: {count}日分を設定しました")
+            return jsonify({
+                'status': 'success', 
+                'message': f'{count}日分のデフォルト時間帯を設定しました。'
+            })
+        else:
+            return jsonify({
+                'status': 'info', 
+                'message': 'すべての日付に時間帯が既に設定されています。'
+            })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"初期時間帯設定でエラーが発生しました: {e}")
+        return jsonify({'status': 'error', 'message': f'設定に失敗しました: {str(e)}'}), 500
 
 if __name__ == '__main__':
     import os
