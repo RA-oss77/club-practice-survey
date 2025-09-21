@@ -82,9 +82,10 @@ def apply_time_slot_changes():
                     # 既存の時間帯を削除
                     TimeSlot.query.filter_by(date_key=date_key).delete()
                     
-                    # 新しい時間帯を追加
+                    # 新しい時間帯を追加（空のマーカーがある場合は何も追加しない）
                     for slot in slots:
-                        db.session.add(TimeSlot(date_key=date_key, slot=slot))
+                        if slot != '__EMPTY_SLOTS__':
+                            db.session.add(TimeSlot(date_key=date_key, slot=slot))
                 
                 # 一時保存データを削除
                 TimeSlotChange.query.delete()
@@ -261,7 +262,11 @@ def admin():
     for change in all_changes:
         if change.date_key not in pending_changes:
             pending_changes[change.date_key] = []
-        pending_changes[change.date_key].append(change.slot)
+        # 空のマーカーの場合は空のリストとして処理
+        if change.slot == '__EMPTY_SLOTS__':
+            pending_changes[change.date_key] = []
+        else:
+            pending_changes[change.date_key].append(change.slot)
 
     for d_info in week_dates:
         d = d_info['date']  # 実際の日付オブジェクトを取得
@@ -354,9 +359,13 @@ def update_time_slots():
     # 既存の一時保存データを削除
     TimeSlotChange.query.filter_by(date_key=key).delete()
     
-    # 新しい時間帯を一時保存
-    for slot in slots:
-        db.session.add(TimeSlotChange(date_key=key, slot=slot))
+    # 新しい時間帯を一時保存（空の配列の場合も処理）
+    if slots:
+        for slot in slots:
+            db.session.add(TimeSlotChange(date_key=key, slot=slot))
+    else:
+        # 空の配列の場合、特別なマーカーを保存して削除予定であることを記録
+        db.session.add(TimeSlotChange(date_key=key, slot='__EMPTY_SLOTS__'))
 
     db.session.commit()
     return jsonify({'status': 'success', 'message': '時間帯変更を一時保存しました。毎週日曜日19:00に反映されます。'})
@@ -383,9 +392,10 @@ def apply_changes_now():
             # 既存の時間帯を削除
             TimeSlot.query.filter_by(date_key=date_key).delete()
             
-            # 新しい時間帯を追加
+            # 新しい時間帯を追加（空のマーカーがある場合は何も追加しない）
             for slot in slots:
-                db.session.add(TimeSlot(date_key=date_key, slot=slot))
+                if slot != '__EMPTY_SLOTS__':
+                    db.session.add(TimeSlot(date_key=date_key, slot=slot))
         
         # 一時保存データを削除
         TimeSlotChange.query.delete()

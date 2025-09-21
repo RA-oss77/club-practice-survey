@@ -103,7 +103,8 @@
         });
         // 保存
         saveBtn.onclick = async function() {
-            const slots = Array.from(block.querySelectorAll('.slot-input')).map(input => input.value.trim()).filter(v => v);
+            // 空の値も含めて取得し、トリムのみ実行（filterは削除）
+            const slots = Array.from(block.querySelectorAll('.slot-input')).map(input => input.value.trim()).filter(v => v !== '');
             const res = await fetch('/admin/update_time_slots', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
