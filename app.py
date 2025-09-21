@@ -195,8 +195,8 @@ def index():
                 'calendar': cal
             }
         ]
-        # 残り1週間以内なら来月分も追加
-        if days_left < 7:
+        # 残り2週間以内なら来月分も追加
+        if days_left < 14:
             next_month = month + 1
             next_year = year
             if next_month > 12:
