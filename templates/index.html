@@ -120,6 +120,12 @@
                         const timeSlotsDiv = document.querySelector('.time-slots');
                         timeSlotsDiv.innerHTML = ''; // 既存をクリア
                         data.time_slots.forEach(slot => {
+                            // 各時間帯のコンテナを作成
+                            const slotContainer = document.createElement('div');
+                            slotContainer.className = 'slot-container';
+                            slotContainer.style.marginBottom = '12px';
+                            
+                            // 時間帯ボタンを作成
                             const btn = document.createElement('button');
                             btn.className = 'time-slot';
                             btn.dataset.slot = slot.id;
@@ -130,13 +136,13 @@
                                 btn.classList.add('selected');
                                 nameForm.style.display = 'block';
                             };
-                            timeSlotsDiv.appendChild(btn);
+                            
                             // 予約者名リストを表示
                             const usersDiv = document.createElement('div');
                             usersDiv.className = 'slot-users';
                             usersDiv.style.fontSize = '0.9em';
                             usersDiv.style.color = '#555';
-                            usersDiv.style.marginBottom = '8px';
+                            usersDiv.style.marginTop = '4px';
                             if (slot.users && slot.users.length > 0) {
                                 // 予約者名とバンド名を「名前（バンド名）」の形式で表示
                                 const userDisplayNames = slot.users.map(user => {
@@ -157,7 +163,13 @@
                             } else {
                                 usersDiv.textContent = '';
                             }
-                            timeSlotsDiv.appendChild(usersDiv);
+                            
+                            // コンテナにボタンと予約者リストを追加
+                            slotContainer.appendChild(btn);
+                            slotContainer.appendChild(usersDiv);
+                            
+                            // タイムスロットdivにコンテナを追加
+                            timeSlotsDiv.appendChild(slotContainer);
                         });
                     } catch (error) {
                         console.error('時間帯取得エラー:', error);
