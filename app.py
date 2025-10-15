@@ -78,12 +78,21 @@ except Exception as e:
 
 calendar.setfirstweekday(calendar.SUNDAY)
 
-# スケジューラー初期化
-scheduler = BackgroundScheduler()
+# スケジューラー初期化（Render環境での安定性向上）
+scheduler = BackgroundScheduler(
+    timezone='Asia/Tokyo',
+    daemon=True,
+    job_defaults={
+        'coalesce': True,
+        'max_instances': 1,
+        'misfire_grace_time': 300
+    }
+)
 
 # スケジューラーのエラーハンドリング
 def scheduler_error_handler(job_id, exception):
     print(f"スケジューラーエラー (Job ID: {job_id}): {exception}")
+    # エラーが発生してもアプリケーションを停止させない
 
 scheduler.add_listener(scheduler_error_handler, EVENT_JOB_ERROR)
 
@@ -156,12 +165,14 @@ scheduler.add_job(
     replace_existing=True
 )
 
-# スケジューラー開始
+# スケジューラー開始（Render環境での安定性向上）
 try:
-    scheduler.start()
-    print("スケジューラーが正常に開始されました")
+    if not scheduler.running:
+        scheduler.start()
+        print("スケジューラーが正常に開始されました")
 except Exception as e:
     print(f"スケジューラーの開始でエラーが発生しました: {e}")
+    # スケジューラーが開始できない場合でもアプリケーションは継続
 
 def get_default_slots(year, month, day):
     dt = date(year, month, day)
@@ -169,6 +180,17 @@ def get_default_slots(year, month, day):
         return ['12:30~14:30', '14:30~16:30']
     else:
         return ['〜16:50', '16:50〜18:00']
+
+@app.route('/health', methods=['GET', 'HEAD'])
+def health_check():
+    """UPTIMEROBOT用のヘルスチェックエンドポイント"""
+    try:
+        # データベース接続をテスト
+        db.session.execute('SELECT 1')
+        return 'OK', 200
+    except Exception as e:
+        print(f"ヘルスチェックエラー: {e}")
+        return 'Database Error', 500
 
 @app.route('/', methods=['GET', 'HEAD'])
 def index():
@@ -505,6 +527,20 @@ def initialize_default_slots():
         db.session.rollback()
         print(f"初期時間帯設定でエラーが発生しました: {e}")
         return jsonify({'status': 'error', 'message': f'設定に失敗しました: {str(e)}'}), 500
+
+# アプリケーション終了時のクリーンアップ処理
+import atexit
+
+def cleanup_scheduler():
+    """アプリケーション終了時にスケジューラーを停止"""
+    try:
+        if scheduler.running:
+            scheduler.shutdown()
+            print("スケジューラーを正常に停止しました")
+    except Exception as e:
+        print(f"スケジューラーの停止でエラーが発生しました: {e}")
+
+atexit.register(cleanup_scheduler)
 
 if __name__ == '__main__':
     import os
