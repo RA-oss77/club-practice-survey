@@ -181,16 +181,39 @@ def get_default_slots(year, month, day):
     else:
         return ['〜16:50', '16:50〜18:00']
 
+@app.route('/ping', methods=['GET', 'HEAD'])
+def ping():
+    """シンプルなヘルスチェックエンドポイント（データベース不要）"""
+    return 'pong', 200
+
 @app.route('/health', methods=['GET', 'HEAD'])
 def health_check():
     """UPTIMEROBOT用のヘルスチェックエンドポイント"""
     try:
-        # データベース接続をテスト
-        db.session.execute('SELECT 1')
-        return 'OK', 200
+        # データベースファイルの存在確認
+        import os
+        db_path = 'instance/reservations.db'
+        if not os.path.exists(db_path):
+            print("データベースファイルが存在しません")
+            return 'Database File Missing', 500
+        
+        # データベース接続をテスト（タイムアウト付き）
+        import sqlite3
+        with sqlite3.connect(db_path, timeout=5.0) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT 1')
+            result = cursor.fetchone()
+            if result and result[0] == 1:
+                return 'OK', 200
+            else:
+                return 'Database Query Failed', 500
+                
+    except sqlite3.OperationalError as e:
+        print(f"データベース操作エラー: {e}")
+        return 'Database Operational Error', 500
     except Exception as e:
         print(f"ヘルスチェックエラー: {e}")
-        return 'Database Error', 500
+        return 'Health Check Error', 500
 
 @app.route('/', methods=['GET', 'HEAD'])
 def index():
