@@ -144,19 +144,45 @@
                             usersDiv.style.color = '#555';
                             usersDiv.style.marginTop = '4px';
                             if (slot.users && slot.users.length > 0) {
-                                // 予約者名とバンド名を「名前（バンド名）」の形式で表示
-                                const userDisplayNames = slot.users.map(user => {
+                                // 予約者名とバンド名をクリック可能な形式で表示
+                                const userElements = slot.users.map(user => {
                                     if (typeof user === 'object' && user.name && user.band_name) {
-                                        return `${user.name}（${user.band_name}）`;
+                                        const userSpan = document.createElement('span');
+                                        userSpan.className = 'user-name';
+                                        userSpan.textContent = `${user.name}（${user.band_name}）`;
+                                        userSpan.style.cursor = 'pointer';
+                                        userSpan.style.color = '#007bff';
+                                        userSpan.style.textDecoration = 'underline';
+                                        userSpan.style.marginRight = '8px';
+                                        
+                                        // クリックイベントを追加
+                                        userSpan.addEventListener('click', function(e) {
+                                            e.stopPropagation();
+                                            showCancelDialog(user.name, user.band_name, slot.id, selectedDate);
+                                        });
+                                        
+                                        return userSpan;
                                     } else if (typeof user === 'string') {
                                         // 既存の文字列形式の場合はそのまま表示（後方互換性）
-                                        return user;
+                                        const userSpan = document.createElement('span');
+                                        userSpan.textContent = user;
+                                        return userSpan;
                                     }
-                                    return '';
-                                }).filter(name => name !== '');
+                                    return null;
+                                }).filter(element => element !== null);
                                 
-                                if (userDisplayNames.length > 0) {
-                                    usersDiv.textContent = '予約者: ' + userDisplayNames.join(', ');
+                                if (userElements.length > 0) {
+                                    const label = document.createElement('span');
+                                    label.textContent = '予約者: ';
+                                    usersDiv.appendChild(label);
+                                    userElements.forEach((element, index) => {
+                                        usersDiv.appendChild(element);
+                                        if (index < userElements.length - 1) {
+                                            const comma = document.createElement('span');
+                                            comma.textContent = ', ';
+                                            usersDiv.appendChild(comma);
+                                        }
+                                    });
                                 } else {
                                     usersDiv.textContent = '';
                                 }
@@ -227,6 +253,87 @@
                 if (event.target == modal) {
                     modal.style.display = 'none';
                 }
+            }
+
+            // キャンセル確認ダイアログを表示する関数
+            function showCancelDialog(userName, bandName, timeSlot, date) {
+                // 既存のポップアップがあれば削除
+                const existingPopup = document.querySelector('.cancel-popup');
+                const existingOverlay = document.querySelector('.popup-overlay');
+                if (existingPopup) existingPopup.remove();
+                if (existingOverlay) existingOverlay.remove();
+
+                // オーバーレイを作成
+                const overlay = document.createElement('div');
+                overlay.className = 'popup-overlay';
+
+                // ポップアップを作成
+                const popup = document.createElement('div');
+                popup.className = 'cancel-popup';
+                popup.innerHTML = `
+                    <h3>予約キャンセル確認</h3>
+                    <p>${userName}（${bandName}）さんの<br>
+                    ${date.month}月${date.day}日 ${timeSlot}の予約を<br>
+                    キャンセルしますか？</p>
+                    <div class="cancel-buttons">
+                        <button class="cancel-btn cancel-confirm">キャンセル</button>
+                        <button class="cancel-btn cancel-cancel">やめる</button>
+                    </div>
+                `;
+
+                // イベントリスナーを追加
+                popup.querySelector('.cancel-confirm').addEventListener('click', async function() {
+                    try {
+                        const response = await fetch('/cancel_practice', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                year: date.year,
+                                month: date.month,
+                                day: date.day,
+                                user_name: userName,
+                                time_slot: timeSlot
+                            })
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            alert('予約をキャンセルしました');
+                            // ページをリロードして最新の状態を表示
+                            location.reload();
+                        } else {
+                            alert('キャンセルに失敗しました: ' + result.message);
+                        }
+                    } catch (error) {
+                        console.error('キャンセルエラー:', error);
+                        alert('キャンセルに失敗しました。');
+                    } finally {
+                        // ポップアップを閉じる
+                        popup.remove();
+                        overlay.remove();
+                    }
+                });
+
+                popup.querySelector('.cancel-cancel').addEventListener('click', function() {
+                    popup.remove();
+                    overlay.remove();
+                });
+
+                // オーバーレイクリックで閉じる
+                overlay.addEventListener('click', function() {
+                    popup.remove();
+                    overlay.remove();
+                });
+
+                // DOMに追加
+                document.body.appendChild(overlay);
+                document.body.appendChild(popup);
             }
         });
     </script>

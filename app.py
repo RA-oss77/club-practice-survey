@@ -551,6 +551,39 @@ def initialize_default_slots():
         print(f"初期時間帯設定でエラーが発生しました: {e}")
         return jsonify({'status': 'error', 'message': f'設定に失敗しました: {str(e)}'}), 500
 
+@app.route('/cancel_practice', methods=['POST'])
+def cancel_practice():
+    """予約キャンセル機能"""
+    try:
+        data = request.get_json()
+        date_key = f"{data['year']}-{data['month']}-{data['day']}"
+        user_name = data.get('user_name')
+        time_slot = data.get('time_slot')
+        
+        if not user_name or not time_slot:
+            return jsonify({'status': 'error', 'message': '名前と時間帯は必須です'}), 400
+        
+        # 該当する予約を検索して削除
+        reservation = PracticeRequest.query.filter_by(
+            date_key=date_key, 
+            user_name=user_name, 
+            time_slot=time_slot
+        ).first()
+        
+        if not reservation:
+            return jsonify({'status': 'error', 'message': '該当する予約が見つかりません'}), 404
+        
+        db.session.delete(reservation)
+        db.session.commit()
+        
+        print(f"予約キャンセル: {date_key} {user_name} {time_slot}")
+        return jsonify({'status': 'success', 'message': '予約をキャンセルしました'})
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"予約キャンセルでエラーが発生しました: {e}")
+        return jsonify({'status': 'error', 'message': f'キャンセルに失敗しました: {str(e)}'}), 500
+
 # アプリケーション終了時のクリーンアップ処理
 import atexit
 
