@@ -63,12 +63,12 @@ try:
         # 初期時間帯を設定（既存のデータがない場合のみ）
         existing_slots = TimeSlot.query.first()
         if not existing_slots:
-        # 今日を含む週の日曜日を計算（日本時間）
-        today = get_jst_date()
-        days_since_sunday = today.weekday() + 1  # 月曜日=0なので+1して日曜日=0にする
-        if days_since_sunday == 7:  # 日曜日の場合は0にする
-            days_since_sunday = 0
-        current_week_sunday = today - timedelta(days=days_since_sunday)
+            # 今日を含む週の日曜日を計算（日本時間）
+            today = get_jst_date()
+            days_since_sunday = today.weekday() + 1  # 月曜日=0なので+1して日曜日=0にする
+            if days_since_sunday == 7:  # 日曜日の場合は0にする
+                days_since_sunday = 0
+            current_week_sunday = today - timedelta(days=days_since_sunday)
             
             # 3週間分の日曜日から土曜日まで（21日間）にデフォルト時間帯を設定
             for week in range(3):  # 3週間
