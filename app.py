@@ -8,11 +8,23 @@ import time
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.events import EVENT_JOB_ERROR
+import pytz
 
 app = Flask(__name__)
 
 # CORS設定を追加
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+# 日本時間のタイムゾーン設定
+JST = pytz.timezone('Asia/Tokyo')
+
+def get_jst_date():
+    """日本時間での現在の日付を取得"""
+    return datetime.now(JST).date()
+
+def get_jst_datetime():
+    """日本時間での現在の日時を取得"""
+    return datetime.now(JST)
 
 # SQLiteデータベース設定
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///reservations.db'
@@ -51,12 +63,12 @@ try:
         # 初期時間帯を設定（既存のデータがない場合のみ）
         existing_slots = TimeSlot.query.first()
         if not existing_slots:
-            # 今日を含む週の日曜日を計算
-            today = date.today()
-            days_since_sunday = today.weekday() + 1  # 月曜日=0なので+1して日曜日=0にする
-            if days_since_sunday == 7:  # 日曜日の場合は0にする
-                days_since_sunday = 0
-            current_week_sunday = today - timedelta(days=days_since_sunday)
+        # 今日を含む週の日曜日を計算（日本時間）
+        today = get_jst_date()
+        days_since_sunday = today.weekday() + 1  # 月曜日=0なので+1して日曜日=0にする
+        if days_since_sunday == 7:  # 日曜日の場合は0にする
+            days_since_sunday = 0
+        current_week_sunday = today - timedelta(days=days_since_sunday)
             
             # 3週間分の日曜日から土曜日まで（21日間）にデフォルト時間帯を設定
             for week in range(3):  # 3週間
@@ -129,8 +141,8 @@ def apply_time_slot_changes():
             else:
                 print("反映する時間帯変更はありません")
             
-            # 新しい週のデフォルト時間帯を設定
-            today = date.today()
+            # 新しい週のデフォルト時間帯を設定（日本時間）
+            today = get_jst_date()
             # 3週間後の日曜日から土曜日まで（7日間）の時間帯を設定
             three_weeks_later = today + timedelta(weeks=3)
             days_since_sunday = three_weeks_later.weekday() + 1
@@ -222,7 +234,7 @@ def index():
         if request.method == 'HEAD':
             return '', 200
         
-        today = date.today()
+        today = get_jst_date()
         year = today.year
         month = today.month
         cal = calendar.monthcalendar(year, month)
@@ -319,7 +331,7 @@ def index():
 
 @app.route('/admin')
 def admin():
-    today = date.today()
+    today = get_jst_date()
     # 今日を含む週の日曜日を計算
     days_since_sunday = today.weekday() + 1  # 月曜日=0なので+1して日曜日=0にする
     if days_since_sunday == 7:  # 日曜日の場合は0にする
@@ -381,9 +393,9 @@ def admin():
         
         practice_users[date_key] = users_per_slot
     
-    # 次回反映予定時刻を計算
+    # 次回反映予定時刻を計算（日本時間）
     next_sunday = current_week_sunday + timedelta(weeks=1)
-    next_update_time = datetime.combine(next_sunday, datetime.min.time().replace(hour=19, minute=0))
+    next_update_time = JST.localize(datetime.combine(next_sunday, datetime.min.time().replace(hour=19, minute=0)))
     
     return render_template('admin.html', 
                          week_dates=week_dates, 
@@ -509,8 +521,8 @@ def apply_changes_now():
 def initialize_default_slots():
     """管理者による初期時間帯設定"""
     try:
-        # 今日を含む週の日曜日を計算
-        today = date.today()
+        # 今日を含む週の日曜日を計算（日本時間）
+        today = get_jst_date()
         days_since_sunday = today.weekday() + 1  # 月曜日=0なので+1して日曜日=0にする
         if days_since_sunday == 7:  # 日曜日の場合は0にする
             days_since_sunday = 0
