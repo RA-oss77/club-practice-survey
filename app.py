@@ -143,7 +143,7 @@ def apply_time_slot_changes():
             
             # 新しい週のデフォルト時間帯を設定（日本時間）
             today = get_jst_date()
-            # 3週間後の日曜日から土曜日まで（7日間）の時間帯を設定
+            # 3週間後の日曜日から土曜日まで（7日間）の時間帯を設定（土曜日と日曜日は除外）
             three_weeks_later = today + timedelta(weeks=3)
             days_since_sunday = three_weeks_later.weekday() + 1
             if days_since_sunday == 7:
@@ -151,6 +151,10 @@ def apply_time_slot_changes():
             week_start = three_weeks_later - timedelta(days=days_since_sunday)
             
             for day in range(7):  # 日曜日から土曜日まで
+                # 土曜日（day=6）と日曜日（day=0）はスキップ
+                if day == 0 or day == 6:
+                    continue
+                    
                 current_date = week_start + timedelta(days=day)
                 date_key = f"{current_date.year}-{current_date.month}-{current_date.day}"
                 
