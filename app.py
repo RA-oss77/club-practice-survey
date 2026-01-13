@@ -190,7 +190,9 @@ def get_default_slots(year, month, day):
     dt = date(year, month, day)
     if dt.weekday() == 5 or dt.weekday() == 6:  # 5:土, 6:日
         return ['12:30~14:30', '14:30~16:30']
-    else:
+    elif dt.weekday() == 1 or dt.weekday() == 3 or dt.weekday() == 4:  # 1:火, 3:木, 4:金
+        return ['16:50〜18:00']
+    else:  # 0:月, 2:水
         return ['〜16:50', '16:50〜18:00']
 
 @app.route('/ping', methods=['GET', 'HEAD'])

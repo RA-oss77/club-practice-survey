@@ -112,7 +112,9 @@
                 
                 if (dayOfWeek === 0 || dayOfWeek === 6) { // 日曜日または土曜日
                     defaultSlots = ['12:30~14:30', '14:30~16:30'];
-                } else { // 平日
+                } else if (dayOfWeek === 2 || dayOfWeek === 4 || dayOfWeek === 5) { // 火曜日(2), 木曜日(4), 金曜日(5)
+                    defaultSlots = ['16:50〜18:00'];
+                } else { // 月曜日(1), 水曜日(3)
                     defaultSlots = ['〜16:50', '16:50〜18:00'];
                 }
                 
